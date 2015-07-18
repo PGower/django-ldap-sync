@@ -148,7 +148,7 @@ class Command(NoArgsCommand):
                 unique_name = value_map[unique_name_field][0]
             else:
                 unique_name = value_map[unique_name_field]
-            distinguished_name = ldap_object['dn']
+            distinguished_name = unicode(ldap_object['dn'], 'utf-8')
 
             model_dn_map[unique_name] = distinguished_name
 
