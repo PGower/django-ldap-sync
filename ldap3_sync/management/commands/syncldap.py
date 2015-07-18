@@ -144,7 +144,7 @@ class Command(NoArgsCommand):
             except MissingLdapField as e:
                 logger.error('LDAP Object {} is missing a field: {}'.format(ldap_object['dn'], e))
                 continue
-            unique_name = value_map[unique_name_field]
+            unique_name = value_map[unique_name_field][0]
             distinguished_name = ldap_object['dn']
 
             model_dn_map[unique_name] = distinguished_name
