@@ -144,7 +144,10 @@ class Command(NoArgsCommand):
             except MissingLdapField as e:
                 logger.error('LDAP Object {} is missing a field: {}'.format(ldap_object['dn'], e))
                 continue
-            unique_name = value_map[unique_name_field][0]
+            if type(value_map[unique_name_field]) is list:
+                unique_name = value_map[unique_name_field][0]
+            else:
+                unique_name = value_map[unique_name_field]
             distinguished_name = ldap_object['dn']
 
             model_dn_map[unique_name] = distinguished_name
@@ -249,7 +252,7 @@ class Command(NoArgsCommand):
         value_map = {}
         for ldap_attr, model_attr in attribute_map.items():
             try:
-                value_map[model_attr] = ldap_attribute_values[ldap_attr]
+                value_map[model_attr] = ldap_attribute_values[ldap_attr][0]
             except KeyError:
                 raise MissingLdapField(ldap_attr)
         return value_map
