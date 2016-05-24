@@ -332,6 +332,9 @@ class Command(BaseCommand):
         self.user_model_attribute_names = self.user_attribute_map.values()
 
         self.exempt_usernames = getattr(settings, 'LDAP_SYNC_USER_EXEMPT_FROM_SYNC', DEFAULTS['LDAP_SYNC_USER_EXEMPT_FROM_SYNC'])
+        if callable(self.exempt_usernames):
+            self.exempt_usernames = self.exempt_usernames()
+
         self.user_removal_action = getattr(settings, 'LDAP_SYNC_USER_REMOVAL_ACTION', DEFAULTS['LDAP_SYNC_USER_REMOVAL_ACTION'])
         if self.user_removal_action not in USER_REMOVAL_OPTIONS:
             raise ImproperlyConfigured('LDAP_SYNC_USER_REMOVAL_ACTION must be one of {}'.format(USER_REMOVAL_OPTIONS))
@@ -370,6 +373,8 @@ class Command(BaseCommand):
             raise ImproperlyConfigured('LDAP_SYNC_GROUP_REMOVAL_ACTION must be one of {}'.format(GROUP_REMOVAL_OPTIONS))
 
         self.exempt_groupnames = getattr(settings, 'LDAP_SYNC_GROUP_EXEMPT_FROM_SYNC', DEFAULTS['LDAP_SYNC_GROUP_EXEMPT_FROM_SYNC'])
+        if callable(self.exempt_groupnames):
+            self.exempt_groupnames = self.exempt_groupnames()
 
         self.sync_groups = getattr(settings, 'LDAP_SYNC_GROUPS', DEFAULTS['LDAP_SYNC_GROUPS'])
 
