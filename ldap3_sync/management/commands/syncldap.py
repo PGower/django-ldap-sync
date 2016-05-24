@@ -1,15 +1,14 @@
 import logging
 
 import ldap3
-from ldap3.core.exceptions import LDAPExceptionError, LDAPCommunicationError
 from ldap3.utils.conv import escape_bytes
 
 from django.conf import settings
-from django.core.management.base import NoArgsCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ImproperlyConfigured
-from django.db import IntegrityError, DataError, connection
+from django.db import connection
 from ldap3_sync.models import LDAPUser, LDAPGroup
 
 
@@ -40,10 +39,13 @@ DEFAULTS = {
 }
 
 
-class Command(NoArgsCommand):
+class Command(BaseCommand):
     help = "Synchronize users, groups and group membership from an LDAP server"
 
-    def handle_noargs(self, **options):
+    def handle(self, *args, **options):
+        if args:
+            raise CommandError("Command doesn't accept any arguments")
+
         self.load_settings()
         if self.sync_users:
             self.sync_ldap_users()
@@ -375,7 +377,6 @@ class Command(NoArgsCommand):
 
         self.group_membership_filter = getattr(settings, 'LDAP_SYNC_GROUP_MEMBERSHIP_FILTER', DEFAULTS['LDAP_SYNC_GROUP_MEMBERSHIP_FILTER'])
 
-
         # LDAP Servers
         try:
             self.ldap_config = getattr(settings, 'LDAP_CONFIG')
@@ -426,10 +427,9 @@ class SmartLDAPSearcher:
         connection = self.get_connection()
         connection.search(search_base=base, search_filter=filter, search_scope=scope, attributes=attributes, paged_size=self.page_size, paged_cookie=None)
         logger.debug('Connection.search.response is: {}'.format(connection.response))
-        if len(connection.response) < self.page_size:
-            results = connection.response
-        else:
-            results = connection.response
+
+        results = connection.response
+        if len(connection.response) > self.page_size:
             cookie = connection.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
             while cookie:
                 connection.search(search_base=base, search_filter=filter, search_scope=ldap3.SEARCH_SCOPE_WHOLE_SUBTREE, attributes=attributes, paged_size=self.page_size, paged_cookie=cookie)
