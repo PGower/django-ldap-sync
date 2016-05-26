@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from ldap3_sync.models import LDAPSyncRecord
 
 # Only providing these so that if something odd happens
