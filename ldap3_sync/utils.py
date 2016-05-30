@@ -350,39 +350,40 @@ class LDAPConnectionFactory(object):
         except KeyError:
             if key in config:
                 del(config[key])
+        except TypeError as e:
+            e.msg = 'Attempt to lookup {} in ldap3 module failed'.format(str(config[key]))
+            raise e
 
     def _get_servers(self):
         '''Return either a single LDAP3 server object or a ServerPool if multiple servers are defined'''
         servers = []
-        if 'servers' not in self.config.keys():
-            return None
-        for server_config in self.config['servers']:
+        for server_config in self.config.get('servers', []):
             try:
                 host = server_config['host']
             except KeyError:
                 raise ImproperlyConfigured('The host parameter is required for all server definitions')
-            del server_config['host']
 
             self._translate_string_to_constant(server_config, 'get_info')
             self._translate_string_to_constant(server_config, 'mode')
 
-            servers.append(ldap3.Server(host, **server_config))
-        if len(servers) == 1:
+            # Need a copy so that I dont destroy host in the original config
+            kwargs = server_config.copy()
+            del(kwargs['host'])
+
+            servers.append(ldap3.Server(host, **kwargs))
+
+        if len(servers) == 0:
+            return None
+        elif len(servers) == 1:
             return servers[0]
         else:
-            if 'pool' in self.config.keys():
-                pool_config = self.config['pool']
-                try:
-                    pool_config['strategy'] = getattr(ldap3, pool_config['strategy'])
-                except KeyError:
-                    pass
-                return ServerPool(servers, **pool_config)
-            else:
-                return ServerPool(servers)
+            pool_config = self.config.get('pool', {})
+            self._translate_string_to_constant(pool_config, 'strategy')
+            return ldap3.ServerPool(servers, **pool_config)
 
     def get_connection(self):
         '''Use the config returned in _get_config and create a new LDAP connection'''
-        connection_config = self.config['connection']
+        connection_config = self.config.get('connection', {})
         servers = self._get_servers()
         if servers is None:
             if 'server' not in connection_config:
@@ -395,14 +396,18 @@ class LDAPConnectionFactory(object):
         self._translate_string_to_constant(connection_config, 'authentication')
         self._translate_string_to_constant(connection_config, 'client_strategy')
         self._translate_string_to_constant(connection_config, 'sasl_mechanism')
-        
+
         return ldap3.Connection(**connection_config)
 
 
 class DjangoLDAPConnectionFactory(LDAPConnectionFactory):
+    def __init__(self, key='LDAP_CONFIG'):
+        self.settings_key = key
+        super(DjangoLDAPConnectionFactory, self).__init__()
+
     def _get_config(self):
         # Expects config to be stored in a key called LDAP_CONFIG
-        return getattr(settings, 'LDAP_CONFIG')
+        return getattr(settings, self.settings_key)
 
 
 class YAMLLDAPConnectionFactory(LDAPConnectionFactory):

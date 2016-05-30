@@ -147,3 +147,46 @@ A list of dictionaries each one containing configuration information for a serve
 	 - **get_schema**  
 		Default: `SCHEMA`  
 	Determines which schema information to retrieve from the server. At a minimum this should be SCHEMA so that values retrieved from the directory are coerced to proper python types.  
+
+
+servers:
+    - host: 'string' - Required
+      port: int
+      use_ssl: Bool
+      allowed_referral_hosts: list of tuples (see LDAP3 docs)
+      get_info: constants from ldap3 package
+      mode: constants from ldap3 package
+      tls: this needs more thought
+      formater: dict
+      connect_timeout: int
+pool:
+    active: boolean / number
+    exhaust: boolean / number
+    strategy: constants from ldap3 package
+
+connection:
+    server: will be provided
+    user: string
+    password: string
+    auto_bind: constants from ldap3 package
+    version: int
+    authentication: constants from ldap3 package
+    client_strategy: constants
+    auto_referrals: boolean
+    sasl_mechanism: constants
+    sasl_credential: an object
+    collect_usage: ???
+    read_only: boolean
+    lazy: boolean
+    check_names: boolean
+    raise_exceptions: boolean
+    pool_name: string
+    pool_size: int
+    pool_lifetime: int
+    fast_decoder: boolean
+    recieve_timeout: int
+    return_empty_attributes: boolean
+
+
+
+

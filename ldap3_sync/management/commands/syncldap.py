@@ -6,6 +6,8 @@ from django.contrib.auth import get_user_model
 
 from django.contrib.auth.models import Group
 
+from django.contrib.contenttypes.models import ContentType
+
 from django.core.exceptions import ImproperlyConfigured
 
 from django.core.management.base import BaseCommand, CommandError
@@ -14,7 +16,9 @@ import ldap3
 
 from ldap3.utils.conv import escape_bytes
 
-from ldap_sync.utils import SmartLDAPSearcher, Synchronizer
+from ldap_sync.utils import DePagingLDAPSearch, DjangoLDAPConnectionFactory, Synchronizer
+
+from ldap_sync.models import LDAPSyncRecord
 
 # from django.db import connection
 
@@ -53,6 +57,8 @@ class Command(BaseCommand):
         if args:
             raise CommandError("Command doesn't accept any arguments")
 
+        self.connection_factory = DjangoLDAPConnectionFactory()
+
         self.load_settings()
         if self.sync_users:
             self.sync_ldap_users()
@@ -66,7 +72,9 @@ class Command(BaseCommand):
         Retrieve user data from target LDAP server.
         """
         logging.debug('Retrieving Users from LDAP')
-        users = self.smart_ldap_searcher.search(self.user_base, self.user_filter, ldap3.SEARCH_SCOPE_WHOLE_SUBTREE, self.user_ldap_attribute_names)
+        connection = self.connection_factory.get_connection()
+        depager = DePagingLDAPSearch(connection)
+        users = depager.search(self.user_base, self.user_filter, search_scope=ldap3.SEARCH_SCOPE_WHOLE_SUBTREE, attributes=self.user_ldap_attribute_names)
         logger.info("Retrieved {} LDAP users".format(len(users)))
         return users
 
@@ -91,7 +99,9 @@ class Command(BaseCommand):
         Retrieve groups from target LDAP server.
         """
         logger.debug('Retrieving Groups from LDAP')
-        return self.smart_ldap_searcher.search(self.group_base, self.group_filter, ldap3.SEARCH_SCOPE_WHOLE_SUBTREE, self.group_ldap_attribute_names)
+        connection = self.connection_factory.get_connection()
+        depager = DePagingLDAPSearch(connection)
+        return depager.search(self.group_base, self.group_filter, search_scope=ldap3.SEARCH_SCOPE_WHOLE_SUBTREE, attributes=self.group_ldap_attribute_names)
 
     def sync_ldap_groups(self):
         """
@@ -112,10 +122,13 @@ class Command(BaseCommand):
     def get_ldap_group_membership(self, user_dn):
         """Retrieve django group ids that this user DN is a member of."""
         if not hasattr(self, '_group_cache'):
-            r = LDAPGroup.objects.all().values_list('distinguished_name', 'obj')
+            content_type = ContentType.objects.get_for_model(Group)
+            r = LDAPSyncRecord.objects.filter(content_type=content_type).all().values_list('distinguished_name', 'obj')
             self._group_cache = dict(r)
         logger.debug('Retrieving groups that {} is a member of'.format(user_dn))
-        ldap_groups = self.smart_ldap_searcher.search(self.group_base, self.group_membership_filter.format(user_dn=escape_bytes(user_dn)), ldap3.SEARCH_SCOPE_WHOLE_SUBTREE, None)
+        connection = self.connection_factory.get_connection()
+        depager = DePagingLDAPSearch(connection)
+        ldap_groups = depager.search(self.group_base, self.group_membership_filter.format(user_dn=escape_bytes(user_dn)), search_scope=ldap3.SEARCH_SCOPE_WHOLE_SUBTREE, attributes=None)
         return (self._group_cache.get(i['dn']) for i in ldap_groups if i.get('dn'))
 
     def sync_group_membership(self):
@@ -125,8 +138,10 @@ class Command(BaseCommand):
         django_users = self.get_django_users()
         for username, django_user in django_users.items():
             try:
-                user_dn = django_user.ldap_sync_user.distinguished_name
-            except LDAPUser.DoesNotExist:
+                content_type = ContentType.objects.get_for_model(django_user)
+                ldap_record = LDAPSyncRecord.objects.get(content_type=content_type, object_id=django_user.pk)
+                user_dn = ldap_record.distinguished_name
+            except LDAPSyncRecord.DoesNotExist:
                 logger.warning('Django user with {} = {} does not have a distinguishedName associated'.format(self.username_field, getattr(django_user, self.username_field)))
                 continue
 
@@ -226,10 +241,3 @@ class Command(BaseCommand):
         self.sync_membership = getattr(settings, 'LDAP_SYNC_GROUP_MEMBERSHIP', DEFAULTS['LDAP_SYNC_GROUP_MEMBERSHIP'])
 
         self.group_membership_filter = getattr(settings, 'LDAP_SYNC_GROUP_MEMBERSHIP_FILTER', DEFAULTS['LDAP_SYNC_GROUP_MEMBERSHIP_FILTER'])
-
-        # LDAP Servers
-        try:
-            self.ldap_config = getattr(settings, 'LDAP_CONFIG')
-        except AttributeError:
-            raise ImproperlyConfigured('LDAP_CONFIG is a required configuration item')
-        self.smart_ldap_searcher = SmartLDAPSearcher(self.ldap_config)

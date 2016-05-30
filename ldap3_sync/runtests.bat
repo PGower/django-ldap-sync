@@ -2,7 +2,7 @@
 
 set IN_ENV=0
 
-IF NOT EXIST "%~dp0tests\env" (
+IF NOT EXIST "%~dp0\tests\env" (
 	virtualenv %~dp0\tests\env
 	call %~dp0\tests\env\scripts\activate
 	set IN_ENV=1
@@ -11,7 +11,7 @@ IF NOT EXIST "%~dp0tests\env" (
     pip install django
 )
 
-IF IN_ENV EQU 0 (
+IF %IN_ENV% EQU 0 (
 	REM Only do this when not already in the virtualenv
 	call %~dp0\tests\env\scripts\activate
 )
