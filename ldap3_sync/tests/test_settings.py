@@ -16,7 +16,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'ldap3_sync',
-    "tests",
+    'tests',
 ]
 
 DATABASES = {

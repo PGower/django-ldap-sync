@@ -1,6 +1,8 @@
 # Utility Classes / Functions for Synchronization
 import logging
 
+from django.conf import settings
+
 from django.contrib.contenttypes.models import ContentType
 
 from django.core.exceptions import ImproperlyConfigured
@@ -60,7 +62,7 @@ class Synchronizer(object):
         self._ldap_objects is None and this method has not been implemented
         then raise NotImplemented'''
         if self.ldap_objects_v is None:
-            raise NotImplemented
+            raise NotImplementedError
         return self.ldap_objects_v
     ldap_objects = property(_ldap_objects, 'Return the set of ldap objects which will be synced from')
 
@@ -78,14 +80,14 @@ class Synchronizer(object):
     def _attribute_map(self):
         '''Return the attribute map'''
         if self.attribute_map_v is None:
-            raise NotImplemented
+            raise NotImplementedError
         return self.attribute_map_v
     attribute_map = property(_attribute_map, 'The attribute map used to extract values from the ldap objects')
 
     def _django_object_model(self):
         '''Return the model for the django object that is going to be synchronized'''
         if self.django_object_model_v is None:
-            raise NotImplemented
+            raise NotImplementedError
         return self.django_object_model_v
     django_object_model = property(_django_object_model, 'The django object model used in this synchornization')
 
@@ -96,7 +98,7 @@ class Synchronizer(object):
     def _unique_name_field(self):
         '''Return the unique name field '''
         if self.unique_name_field_v is None:
-            raise NotImplemented
+            raise NotImplementedError
         return self.unique_name_field_v
     unique_name_field = property(_unique_name_field, 'Return the unique name field used to match ldap and django objects')
 
@@ -119,11 +121,11 @@ class Synchronizer(object):
         else:
             return False
 
-    def _removal_action(self, unique_name):
+    def _removal_action(self):
         '''Return 1 of the existing 3 removal actions or return a callable that takes a set of django objects
         that need to be actioned'''
         if self.removal_action_v is None:
-            raise NotImplemented
+            raise NotImplementedError
         return self.removal_action_v
     removal_action = property(_removal_action)
 
@@ -147,10 +149,10 @@ class Synchronizer(object):
 
     def _unsaved_models(self):
         return self.unsaved_models_v
-    unaved_models = property(_unsaved_models, 'A list object containing all of the unsaved django models created by the sync process')
+    unsaved_models = property(_unsaved_models, 'A list object containing all of the unsaved django models created by the sync process')
 
     def add_unsaved_model(self, unsaved_model):
-        self.unsaved_models.append(unsaved_model)
+        self.unsaved_models_v.append(unsaved_model)
 
     def sync(self):
         '''A generic synchronizaation method for LDAP objects to Django Models'''
@@ -301,72 +303,118 @@ class Synchronizer(object):
 
 ############################
 
+class DePagingLDAPSearch(object):
+    '''Given an ldap connection object use it to de-page and return all results from a query. Uses pages in the background to
+    overcome any server query limits.'''
+    def __init__(self, connection, paged_size=400):
+        self.connection = connection
+        assert(paged_size > 1)
+        self.paged_size = paged_size
 
-class SmartLDAPSearcher:
-    def __init__(self, ldap_config):
-        self.ldap_config = ldap_config
-        # Setup a few other config items
-        self.page_size = self.ldap_config.get('page_size', 500)
-        self.bind_user = self.ldap_config.get('bind_user', None)
-        self.bind_password = self.ldap_config.get('bind_password', None)
-        pooling_strategy = self.ldap_config.get('pooling_strategy', 'ROUND_ROBIN')
-        if pooling_strategy not in ldap3.POOLING_STRATEGIES:
-            raise ImproperlyConfigured('LDAP_CONFIG.pooling_strategy must be one of {}'.format(ldap3.POOLING_STRATEGIES))
-        self.server_pool = ldap3.ServerPool(None, pooling_strategy)
-        logger.debug('Created new LDAP Server Pool with pooling strategy: {}'.format(pooling_strategy))
-        try:
-            server_defns = self.ldap_config.get('servers')
-        except AttributeError:
-            raise ImproperlyConfigured('ldap_config.servers must be defined and must contain at least one server')
-        for server_defn in server_defns:
-            self.server_pool.add(self._defn_to_server(server_defn))
+    def search(self, search_base, search_filter, **kwargs):
+        '''Perform a search and depage the results, takes the same arguments as the ldap3.Connection.search method'''
+        if 'paged_size' in kwargs.keys():
+            paged_size = kwargs['paged_size']
+            del kwargs['paged_size']
+        else:
+            paged_size = self.paged_size
 
-    def _defn_to_server(self, defn):
-        '''Turn a settings file server definition into a ldap3 server object'''
-        try:
-            address = defn.get('address')
-        except AttributeError:
-            raise ImproperlyConfigured('Server definition must contain an address')
-        port = defn.get('port', 389)
-        use_ssl = defn.get('use_ssl', False)
-        timeout = defn.get('timeout', 30)
-        get_info = defn.get('get_schema', ldap3.SCHEMA)
-        return ldap3.Server(address, port=port, use_ssl=use_ssl, connect_timeout=timeout, get_info=get_info)
+        if 'paged_cookie' in kwargs.keys():
+            del kwargs['paged_cookie']
 
-    def get_connection(self):
-        if not hasattr(self, '_connection'):
-            self._connection = ldap3.Connection(self.server_pool, user=self.bind_user, password=self.bind_password, client_strategy=ldap3.SYNC, auto_bind=ldap3.AUTO_BIND_NO_TLS)
-        return self._connection
+        self.connection.search(search_base=search_base, search_filter=search_filter, paged_size=paged_size, **kwargs)
 
-    def search(self, base, filter, scope, attributes):
-        '''Perform a paged search but return all of the results in one hit'''
-        logger.debug('SmartLDAPSearcher.search called with base={}, filter={}, scope={} and attributes={}'.format(str(base), str(filter), str(scope), str(attributes)))
-        connection = self.get_connection()
-        connection.search(search_base=base, search_filter=filter, search_scope=scope, attributes=attributes, paged_size=self.page_size, paged_cookie=None)
-        logger.debug('Connection.search.response is: {}'.format(connection.response))
-
-        results = connection.response
-        if len(connection.response) > self.page_size:
-            cookie = connection.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
+        results = self.connection.response
+        if len(self.connection.response) > self.paged_size:
+            cookie = self.connection.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
             while cookie:
-                connection.search(search_base=base, search_filter=filter, search_scope=ldap3.SEARCH_SCOPE_WHOLE_SUBTREE, attributes=attributes, paged_size=self.page_size, paged_cookie=cookie)
-                results += connection.response
-                cookie = connection.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
+                self.connection.search(search_base=search_base, search_filter=search_filter, paged_size=paged_size, paged_cookie=cookie, **kwargs)
+                results += self.connection.response
+                cookie = self.connection.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
         return results
 
-    def get(self, dn, attributes=[]):
-        '''Return the object referenced by the given dn or return None'''
-        # break the dn down and get a base from it
-        search_base = ','.join(dn.split(',')[1:])
-        connection = self.get_connection()
-        connection.search(search_base=search_base, search_filter='(distinguishedName={})'.format(dn), search_scope=ldap3.SEARCH_SCOPE_SINGLE_LEVEL, attributes=attributes)
-        results = connection.response
-        if len(results) > 1:
-            raise MultipleLDAPResultsReturned()
-        elif len(results) == 0:
+
+class LDAPConnectionFactory(object):
+    def __init__(self):
+        self.config = self._get_config()
+
+    def _get_config(self):
+        '''This needs to be reimplemented by the subclass. Get configuration from whichever store you are using
+        and pass the configuration as a dictionary of key value pairs (as defined in the readme.md) to the connector
+        factory'''
+        raise NotImplementedError
+
+    def _translate_string_to_constant(self, config, key):
+        try:
+            config[key] = getattr(ldap3, config[key])
+        except KeyError:
+            if key in config:
+                del(config[key])
+
+    def _get_servers(self):
+        '''Return either a single LDAP3 server object or a ServerPool if multiple servers are defined'''
+        servers = []
+        if 'servers' not in self.config.keys():
             return None
+        for server_config in self.config['servers']:
+            try:
+                host = server_config['host']
+            except KeyError:
+                raise ImproperlyConfigured('The host parameter is required for all server definitions')
+            del server_config['host']
+
+            self._translate_string_to_constant(server_config, 'get_info')
+            self._translate_string_to_constant(server_config, 'mode')
+
+            servers.append(ldap3.Server(host, **server_config))
+        if len(servers) == 1:
+            return servers[0]
         else:
-            return results[0]
+            if 'pool' in self.config.keys():
+                pool_config = self.config['pool']
+                try:
+                    pool_config['strategy'] = getattr(ldap3, pool_config['strategy'])
+                except KeyError:
+                    pass
+                return ServerPool(servers, **pool_config)
+            else:
+                return ServerPool(servers)
+
+    def get_connection(self):
+        '''Use the config returned in _get_config and create a new LDAP connection'''
+        connection_config = self.config['connection']
+        servers = self._get_servers()
+        if servers is None:
+            if 'server' not in connection_config:
+                raise ImproperlyConfigured('Either a set of servers must be defined or a URI / IP / Hostname must be passed in the connection definition')
+        else:
+            # Servers configured in the servers section overrides any servers configured in the connection
+            connection_config['server'] = servers
+
+        self._translate_string_to_constant(connection_config, 'auto_bind')
+        self._translate_string_to_constant(connection_config, 'authentication')
+        self._translate_string_to_constant(connection_config, 'client_strategy')
+        self._translate_string_to_constant(connection_config, 'sasl_mechanism')
+        
+        return ldap3.Connection(**connection_config)
+
+
+class DjangoLDAPConnectionFactory(LDAPConnectionFactory):
+    def _get_config(self):
+        # Expects config to be stored in a key called LDAP_CONFIG
+        return getattr(settings, 'LDAP_CONFIG')
+
+
+class YAMLLDAPConnectionFactory(LDAPConnectionFactory):
+    def __init__(self, config_file):
+        self.config_file = config_file
+        super(YAMLLDAPConnectionFactory, self).__init__()
+
+    def _get_config(self):
+        import yaml
+        with open(self.config_file, 'r') as f:
+            config = yaml.load(f)
+        return config
 
 
 class UnableToApplyValueMapError(Exception):

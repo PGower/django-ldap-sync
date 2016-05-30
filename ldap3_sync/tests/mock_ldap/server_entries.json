@@ -1,0 +1,495 @@
+{
+    "entries": [
+        {
+            "dn": "dc=example,dc=com",
+            "raw": {
+                "dc": [
+                    "example"
+                ],
+                "o": [
+                    "example.com"
+                ],
+                "objectClass": [
+                    "top",
+                    "dcObject",
+                    "organization"
+                ]
+            }
+        },
+        {
+            "dn": "cn=admin,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "admin"
+                ],
+                "description": [
+                    "LDAP administrator"
+                ],
+                "objectClass": [
+                    "simpleSecurityObject",
+                    "organizationalRole"
+                ]
+            }
+        },
+        {
+            "dn": "uid=newton,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Isaac Newton"
+                ],
+                "mail": [
+                    "newton@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Newton"
+                ],
+                "uid": [
+                    "newton"
+                ]
+            }
+        },
+        {
+            "dn": "uid=einstein,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Albert Einstein"
+                ],
+                "mail": [
+                    "einstein@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Einstein"
+                ],
+                "telephoneNumber": [
+                    "314-159-2653"
+                ],
+                "uid": [
+                    "einstein"
+                ]
+            }
+        },
+        {
+            "dn": "uid=tesla,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Nikola Tesla"
+                ],
+                "gidNumber": [
+                    "99999"
+                ],
+                "homeDirectory": [
+                    "home"
+                ],
+                "mail": [
+                    "tesla@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top",
+                    "posixAccount"
+                ],
+                "sn": [
+                    "Tesla"
+                ],
+                "uid": [
+                    "tesla"
+                ],
+                "uidNumber": [
+                    "88888"
+                ]
+            }
+        },
+        {
+            "dn": "uid=galieleo,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Galileo Galilei"
+                ],
+                "mail": [
+                    "galieleo@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Galilei"
+                ],
+                "uid": [
+                    "galieleo"
+                ]
+            }
+        },
+        {
+            "dn": "uid=euler,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Leonhard Euler"
+                ],
+                "mail": [
+                    "euler@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Euler"
+                ],
+                "uid": [
+                    "euler"
+                ]
+            }
+        },
+        {
+            "dn": "uid=gauss,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Carl Friedrich Gauss"
+                ],
+                "mail": [
+                    "gauss@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Gauss"
+                ],
+                "uid": [
+                    "gauss"
+                ]
+            }
+        },
+        {
+            "dn": "uid=riemann,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Bernhard Riemann"
+                ],
+                "mail": [
+                    "riemann@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Riemann"
+                ],
+                "uid": [
+                    "riemann"
+                ]
+            }
+        },
+        {
+            "dn": "uid=euclid,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Euclid"
+                ],
+                "mail": [
+                    "euclid@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Euclid"
+                ],
+                "uid": [
+                    "euclid"
+                ]
+            }
+        },
+        {
+            "dn": "ou=mathematicians,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Mathematicians"
+                ],
+                "objectClass": [
+                    "groupOfUniqueNames",
+                    "top"
+                ],
+                "ou": [
+                    "mathematicians"
+                ],
+                "uniqueMember": [
+                    "uid=euclid,dc=example,dc=com",
+                    "uid=riemann,dc=example,dc=com",
+                    "uid=euler,dc=example,dc=com",
+                    "uid=gauss,dc=example,dc=com",
+                    "uid=test,dc=example,dc=com"
+                ]
+            }
+        },
+        {
+            "dn": "ou=scientists,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Scientists"
+                ],
+                "objectClass": [
+                    "groupOfUniqueNames",
+                    "top"
+                ],
+                "ou": [
+                    "scientists"
+                ],
+                "uniqueMember": [
+                    "uid=einstein,dc=example,dc=com",
+                    "uid=galieleo,dc=example,dc=com",
+                    "uid=tesla,dc=example,dc=com",
+                    "uid=newton,dc=example,dc=com"
+                ]
+            }
+        },
+        {
+            "dn": "cn=read-only-admin,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "read-only-admin"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Read Only Admin"
+                ],
+                "userPassword": [
+                    "{SHA}W6ph5Mm5Pz8GgiULbPgzG37mj9g="
+                ]
+            }
+        },
+        {
+            "dn": "ou=italians,ou=scientists,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Italians"
+                ],
+                "objectClass": [
+                    "groupOfUniqueNames",
+                    "top"
+                ],
+                "ou": [
+                    "italians"
+                ],
+                "uniqueMember": [
+                    "uid=tesla,dc=example,dc=com"
+                ]
+            }
+        },
+        {
+            "dn": "uid=test,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Test"
+                ],
+                "displayName": [
+                    "Test"
+                ],
+                "gidNumber": [
+                    "0"
+                ],
+                "givenName": [
+                    "Test"
+                ],
+                "homeDirectory": [
+                    "home"
+                ],
+                "initials": [
+                    "TS"
+                ],
+                "o": [
+                    "Company"
+                ],
+                "objectClass": [
+                    "posixAccount",
+                    "top",
+                    "inetOrgPerson"
+                ],
+                "sn": [
+                    "Test"
+                ],
+                "uid": [
+                    "test"
+                ],
+                "uidNumber": [
+                    "24601"
+                ]
+            }
+        },
+        {
+            "dn": "ou=chemists,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Chemists"
+                ],
+                "objectClass": [
+                    "groupOfUniqueNames",
+                    "top"
+                ],
+                "ou": [
+                    "chemists"
+                ],
+                "uniqueMember": [
+                    "uid=curie,dc=example,dc=com",
+                    "uid=boyle,dc=example,dc=com",
+                    "uid=nobel,dc=example,dc=com",
+                    "uid=pasteur,dc=example,dc=com"
+                ]
+            }
+        },
+        {
+            "dn": "uid=curie,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Marie Curie"
+                ],
+                "mail": [
+                    "curie@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Curie"
+                ],
+                "uid": [
+                    "curie"
+                ]
+            }
+        },
+        {
+            "dn": "uid=nobel,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Alfred Nobel"
+                ],
+                "mail": [
+                    "nobel@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Nobel"
+                ],
+                "uid": [
+                    "nobel"
+                ]
+            }
+        },
+        {
+            "dn": "uid=boyle,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Robert Boyle"
+                ],
+                "mail": [
+                    "boyle@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Boyle"
+                ],
+                "telephoneNumber": [
+                    "999-867-5309"
+                ],
+                "uid": [
+                    "boyle"
+                ]
+            }
+        },
+        {
+            "dn": "uid=pasteur,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "Louis Pasteur"
+                ],
+                "mail": [
+                    "pasteur@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Pasteur"
+                ],
+                "telephoneNumber": [
+                    "602-214-4978"
+                ],
+                "uid": [
+                    "pasteur"
+                ]
+            }
+        },
+        {
+            "dn": "uid=nogroup,dc=example,dc=com",
+            "raw": {
+                "cn": [
+                    "No Group"
+                ],
+                "mail": [
+                    "nogroup@ldap.forumsys.com"
+                ],
+                "objectClass": [
+                    "inetOrgPerson",
+                    "organizationalPerson",
+                    "person",
+                    "top"
+                ],
+                "sn": [
+                    "Group"
+                ],
+                "uid": [
+                    "nogroup"
+                ]
+            }
+        }
+    ]
+}

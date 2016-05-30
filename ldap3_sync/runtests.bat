@@ -1,3 +1,5 @@
+@echo off
+
 set IN_ENV=0
 
 IF NOT EXIST "%~dp0tests\env" (
