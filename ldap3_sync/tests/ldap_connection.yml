@@ -1,0 +1,38 @@
+servers:
+    - host: testdc1.example.org
+      port: 123
+      use_ssl: true
+      allowed_referral_hosts: [[testdc2.example.org, true]]
+      get_info: ALL
+      mode: IP_SYSTEM_DEFAULT
+      connect_timeout: 60
+    - host: testdc2.example.org
+      port: 345
+      use_ssl: false
+      allowed_referral_hosts: [[testdc1.example.org, false]]
+      get_info: OFFLINE_AD_2012_R2
+      mode: IP_V4_PREFERRED
+      connect_timeout: 120
+pool:
+    active: true
+    exhaust: true
+    pool_strategy: RANDOM
+connection:
+    user: "cn=adminuser,dc=example,dc=com"
+    password: secret
+    auto_bind: AUTO_BIND_NO_TLS
+    version: 3
+    authentication: SIMPLE
+    client_strategy: SYNC
+    auto_referrals: true
+    sasl_mechanism: EXTERNAL
+    read_only: true
+    lazy: true
+    check_names: true
+    raise_exceptions: false
+    pool_name: Test Pool
+    pool_size: 10
+    pool_lifetime: 60
+    fast_decoder: true
+    receive_timeout: 15
+    return_empty_attributes: false

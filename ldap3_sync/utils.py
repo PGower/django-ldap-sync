@@ -7,6 +7,8 @@ from django.contrib.contenttypes.models import ContentType
 
 from django.core.exceptions import ImproperlyConfigured
 
+from django.db.models import QuerySet
+
 import ldap3
 
 from ldap3_sync.models import LDAPSyncRecord
@@ -38,7 +40,7 @@ class Synchronizer(object):
         self.django_object_model_v = django_object_model
         self.unique_name_field_v = unique_name_field
         self.exempt_unique_names = exempt_unique_names
-        self.removal_action_v = removal_action
+        self.removal_action = removal_action
         self.bulk_create_chunk_size = bulk_create_chunk_size
 
         self.uniquename_dn_map = {}
@@ -72,8 +74,9 @@ class Synchronizer(object):
         then raise NotImplemented
         Django objects is expected to be a dictionary mapping uniquenames to models'''
         if self.django_objects_v is None:
-            raw_objects = self.get_django_objects(self.django_object_model)
-            self.django_objects_v = dict([(getattr(ro, self.unique_name_field), ro) for ro in raw_objects])
+            self.django_objects_v = self.django_object_model.objects.all()
+        if isinstance(self.django_objects_v, QuerySet):
+            self.django_objects_v = dict([(getattr(ro, self.unique_name_field), ro) for ro in self.django_objects_v])
         return self.django_objects_v
     django_objects = property(_django_objects, 'The set of django objects which will be synced against')
 
@@ -121,13 +124,13 @@ class Synchronizer(object):
         else:
             return False
 
-    def _removal_action(self):
-        '''Return 1 of the existing 3 removal actions or return a callable that takes a set of django objects
-        that need to be actioned'''
-        if self.removal_action_v is None:
-            raise NotImplementedError
-        return self.removal_action_v
-    removal_action = property(_removal_action)
+    # def _removal_action(self):
+    #     '''Return 1 of the existing 3 removal actions or return a callable that takes a set of django objects
+    #     that need to be actioned'''
+    #     if self.removal_action_v is None:
+    #         raise NotImplementedError
+    #     return self.removal_action_v
+    # removal_action = property(_removal_action)
 
     def add_uniquename_dn_map(self, unique_name, distinguished_name):
         '''Add a uniquename -> dn mapping to the internal sync map'''
@@ -156,7 +159,7 @@ class Synchronizer(object):
 
     def sync(self):
         '''A generic synchronizaation method for LDAP objects to Django Models'''
-        for ldap_object in self.ldap_objects():
+        for ldap_object in self.ldap_objects:
             if ldap_object.get('type') != 'searchResEntry':
                 continue
 
@@ -417,9 +420,11 @@ class YAMLLDAPConnectionFactory(LDAPConnectionFactory):
 
     def _get_config(self):
         import yaml
-        with open(self.config_file, 'r') as f:
-            config = yaml.load(f)
-        return config
+        if type(self.config_file) is file:
+            return yaml.load(self.config_file)
+        else:
+            with open(self.config_file, 'r') as f:
+                return yaml.load(f)
 
 
 class UnableToApplyValueMapError(Exception):

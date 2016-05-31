@@ -1,21 +1,16 @@
 # Unit Tests...
 from django.test import TestCase
-
-from ldap3_sync.utils import Synchronizer, DePagingLDAPSearch, LDAPConnectionFactory
-
+from ldap3_sync.utils import Synchronizer, DePagingLDAPSearch, LDAPConnectionFactory, DjangoLDAPConnectionFactory, YAMLLDAPConnectionFactory
 import mock
-
 import ldap3
-
+import ldap3_sync
 from ldap3_sync.models import LDAPSyncRecord
-
 from models import TestDjangoModel
-
+from django.conf import settings
 from ldap3_sync.utils import NOTHING, SUSPEND, DELETE
-
 from django.core.exceptions import ImproperlyConfigured
-
 import os
+import yaml
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -33,7 +28,7 @@ def mock_ldap_connection():
     return mock_ldap_connection
 
 
-class TestSynchronizer(TestCase):  # noqa
+class TestUnconfiguredSynchronizer(TestCase):  # noqa
     def setUp(self):
         # Unconfigured Synchronizer
         self.uc_s = Synchronizer() 
@@ -42,6 +37,8 @@ class TestSynchronizer(TestCase):  # noqa
         self.assertRaises(NotImplementedError, lambda: self.uc_s.ldap_objects)
 
     def test_django_objects_raises_notimplemented(self):
+        '''This will raise NotImplementedError due to the call to self.django_object_model, 
+        if django_object_model is set, it will try to work around not having this data'''
         self.assertRaises(NotImplementedError, lambda: self.uc_s.django_objects)
 
     def test_attribute_map_raises_notimplemented(self):
@@ -68,6 +65,10 @@ class TestSynchronizer(TestCase):  # noqa
     def test_unsaved_models_is_empty(self):
         self.assertEqual([], self.uc_s.unsaved_models)
 
+    def test_removal_action_raises_notimplemented(self):
+        '''When the removal action is not specified then it should return NOTHING'''
+        self.assertEqual(self.uc_s.removal_action, NOTHING)
+
     def test_add_unsaved_model(self):
         class A:
             pass
@@ -75,6 +76,129 @@ class TestSynchronizer(TestCase):  # noqa
         self.uc_s.add_unsaved_model(fake_unsaved_model)
         self.assertEqual(len(self.uc_s.unsaved_models_v), 1)
         self.assertEqual([fake_unsaved_model], self.uc_s.unsaved_models_v)
+
+
+class TestConfiguredSynchronizer(TestCase):
+    def setUp(self):
+        # Configured Synchronizer
+        connection = mock_ldap_connection()
+        connection.bind()
+        search_base = 'dc=example,dc=com'
+        search_filter = '(objectClass=person)'
+        depager = DePagingLDAPSearch(connection)
+        self.ldap_objects = depager.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
+
+        self.unique_name_field = 'employeeID'
+
+        model_data = [
+            {'first_name': 'Bob', 'last_name': 'Brown', 'email': 'bbrown@example.org', 'employeeID': 123456},
+            {'first_name': 'Rod', 'last_name': 'Stewart', 'email': 'rstewart@example.org', 'employeeID': 234567},
+            {'first_name': 'Iggy', 'last_name': 'Pop', 'email': 'ipop@example.org', 'employeeID': 345678},
+            {'first_name': 'Keith', 'last_name': 'Richards', 'email': 'krichard@example.org', 'employeeID': 456789},
+            {'first_name': 'Bob', 'last_name': 'Marley', 'email': 'bmarley@example.org', 'employeeID': 4567890},
+            {'first_name': 'James', 'last_name': 'Brown', 'email': 'jbrown@example.org', 'employeeID': 5678901},
+            {'first_name': 'Tom', 'last_name': 'Jones', 'email': 'tjones@example.org', 'employeeID': 6789012},
+            {'first_name': 'Otis', 'last_name': 'Redding', 'email': 'oredding@example.org', 'employeeID': 7890123},
+        ]
+        for md in model_data:
+            tdm = TestDjangoModel(**md)
+            tdm.save()
+        self.django_objects = dict([(getattr(m, self.unique_name_field), m) for m in TestDjangoModel.objects.all()])
+
+        self.attribute_map = {
+            'givenName': 'first_name',
+            'sn': 'last_name',
+            'email': 'email',
+            'employeeID': 'employeeID'
+        }
+
+        self.exempt_unique_names = [345678, 7890123]
+
+        self.removal_action = SUSPEND
+
+        self.bulk_create_chunk_size = 35
+
+        self.c_s = Synchronizer(ldap_objects=self.ldap_objects,
+                                django_objects=self.django_objects,
+                                attribute_map=self.attribute_map,
+                                django_object_model=TestDjangoModel,
+                                unique_name_field=self.unique_name_field,
+                                exempt_unique_names=self.exempt_unique_names,
+                                removal_action=self.removal_action,
+                                bulk_create_chunk_size=self.bulk_create_chunk_size)
+
+    def test_ldap_objects_returns_value(self):
+        self.assertEqual(self.c_s.ldap_objects, self.ldap_objects)
+
+    def test_django_objects_returns_value(self):
+        self.assertEqual(self.c_s.django_objects, self.django_objects)
+
+    def test_attribute_map_returns_value(self):
+        self.assertEqual(self.c_s.attribute_map, self.attribute_map)
+
+    def test_django_object_model_return_value(self):
+        self.assertEqual(self.c_s.django_object_model, TestDjangoModel)
+
+    def test_unique_name_field_return_value(self):
+        self.assertEqual(self.c_s.unique_name_field, self.unique_name_field)
+
+    def test_django_object_model_name_return_value(self):
+        self.assertEqual(self.c_s.django_object_model_name, TestDjangoModel.__name__)
+
+    def test_exempt_unique_names_return_value(self):
+        self.assertEqual(self.c_s.exempt_unique_names, self.exempt_unique_names)
+
+    def test_removal_action_return_value(self):
+        self.assertEqual(self.c_s.removal_action, self.removal_action)
+
+    def test_bulk_create_chunk_size_return_value(self):
+        self.assertEqual(self.c_s.bulk_create_chunk_size, self.bulk_create_chunk_size)
+
+    def test_django_objects_returns_all_when_no_explicit_objects_passed(self):
+        '''When no django objects are passed in, use the django_object_model to extract all models'''
+        s = Synchronizer(ldap_objects=self.ldap_objects,
+                         attribute_map=self.attribute_map,
+                         django_object_model=TestDjangoModel,
+                         unique_name_field=self.unique_name_field,
+                         exempt_unique_names=self.exempt_unique_names,
+                         removal_action=self.removal_action,
+                         bulk_create_chunk_size=self.bulk_create_chunk_size)
+        expected_value = dict([(getattr(m, self.unique_name_field), m) for m in TestDjangoModel.objects.all()])
+        self.assertEqual(s.django_objects, expected_value)
+
+    def test_django_objects_returns_all_when_queryset_passed(self):
+        s = Synchronizer(ldap_objects=self.ldap_objects,
+                         django_objects=TestDjangoModel.objects.filter(first_name__icontains='e').all(),
+                         attribute_map=self.attribute_map,
+                         django_object_model=TestDjangoModel,
+                         unique_name_field=self.unique_name_field,
+                         exempt_unique_names=self.exempt_unique_names,
+                         removal_action=self.removal_action,
+                         bulk_create_chunk_size=self.bulk_create_chunk_size)
+        expected_value = dict([(getattr(m, self.unique_name_field), m) for m in TestDjangoModel.objects.filter(first_name__icontains='e').all()])
+        self.assertEqual(s.django_objects, expected_value)
+
+    def test_exempt_unique_names(self):
+        self.assertTrue(self.c_s.exempt_unique_name(self.exempt_unique_names[0]))
+        self.assertFalse(self.c_s.exempt_unique_name('NOTEXEMPT'))
+        self.assertFalse(self.c_s.exempt_unique_name(0000000))
+
+    def test_uniquename_dn_map(self):
+        self.c_s.add_uniquename_dn_map('unique_name1', 'distinguished_name1')
+        self.c_s.add_uniquename_dn_map('unique_name2', 'distinguished_name2')
+        self.c_s.add_uniquename_dn_map('unique_name3', 'distinguished_name3')
+        self.assertTrue(self.c_s.uniquename_in_map('unique_name1'))
+        self.assertFalse(self.c_s.uniquename_in_map('unique_name4'))
+        self.assertTrue(self.c_s.dn_in_map('distinguished_name1'))
+        self.assertFalse(self.c_s.dn_in_map('distinguished_name4'))
+
+    def test_will_model_change(self):
+        model_data = {'first_name': 'Bob', 'last_name': 'Brown', 'email': 'bbrown@example.org', 'employeeID': 123456}
+        model = TestDjangoModel(**model_data)
+        self.assertFalse(self.c_s.will_model_change({'first_name': 'Bob', 'last_name': 'Brown', 'email': 'bbrown@example.org', 'employeeID': 123456}, model))
+        self.assertFalse(self.c_s.will_model_change({'first_name': u'Bob', 'last_name': u'Brown', 'email': u'bbrown@example.org', 'employeeID': 123456}, model))
+        self.assertTrue(self.c_s.will_model_change({'first_name': 'bob', 'last_name': u'brown', 'email': u'BBROWN@example.org', 'employeeID': 123456}, model))
+        self.assertTrue(self.c_s.will_model_change({'first_name': 'Daniel', 'last_name': u'Radcliff', 'email': u'dradcliff@example.org', 'employeeID': 123456}, model))
 
 
 class TestSearchDePager(TestCase):
@@ -99,6 +223,16 @@ class TestSearchDePager(TestCase):
         self.assertEqual(len(results), 14)
         # This is currently broken because the mock ldap server does not support paging
 
+    def test_remove_paged_cookie(self):
+        depager = DePagingLDAPSearch(self.connection, paged_size=500)
+        results = depager.search(self.search_base, self.search_filter, attributes=ldap3.ALL_ATTRIBUTES, paged_cookie='THIS_IS_NOT_A_REAL_COOKIE')
+        self.assertEqual(len(results), 14)
+
+    def test_search_paged_size(self):
+        depager = DePagingLDAPSearch(self.connection)
+        results = depager.search(self.search_base, self.search_filter, attributes=ldap3.ALL_ATTRIBUTES, paged_size=500)
+        self.assertEqual(len(results), 14)
+
 
 class FakeLDAPConnectionFactory(LDAPConnectionFactory):
     def __init__(self, test_config):
@@ -109,7 +243,46 @@ class FakeLDAPConnectionFactory(LDAPConnectionFactory):
         return self.test_config
 
 
-class TestLDAPConnectionFactory(TestCase):
+class LDAPConnectionFactoryTester(object):
+    def run_all_of_the_tests(self, config, connection):
+        # This is kind of wrong because it is testing the internal state of the ldap3 connection object
+        # What I am really trying to test is that the values passed in are actually being set, ie the factory works
+        self.assertEqual(config['connection']['user'], connection.user)
+        self.assertEqual(config['connection']['password'], connection.password)
+        self.assertEqual(config['connection']['auto_bind'], connection.auto_bind)
+        self.assertEqual(config['connection']['version'], connection.version)
+        self.assertEqual(config['connection']['authentication'], connection.authentication)
+        self.assertEqual(config['connection']['client_strategy'], connection.strategy_type)
+        self.assertEqual(config['connection']['auto_referrals'], connection.auto_referrals)
+        self.assertEqual(config['connection']['sasl_mechanism'], connection.sasl_mechanism)
+        self.assertEqual(config['connection']['read_only'], connection.read_only)
+        self.assertEqual(config['connection']['lazy'], connection.lazy)
+        self.assertEqual(config['connection']['check_names'], connection.check_names)
+        self.assertEqual(config['connection']['raise_exceptions'], connection.raise_exceptions)
+        self.assertEqual(config['connection']['pool_name'], connection.pool_name)
+        self.assertEqual(config['connection']['pool_size'], connection.pool_size)
+        self.assertEqual(config['connection']['pool_lifetime'], connection.pool_lifetime)
+        self.assertEqual(config['connection']['fast_decoder'], connection.fast_decoder)
+        self.assertEqual(config['connection']['receive_timeout'], connection.receive_timeout)
+        self.assertEqual(config['connection']['return_empty_attributes'], connection.empty_attributes)
+
+        server_pool = connection.server_pool
+        self.assertEqual(config['pool']['active'], server_pool.active)
+        self.assertEqual(config['pool']['pool_strategy'], server_pool.strategy)
+        self.assertEqual(config['pool']['exhaust'], server_pool.exhaust)
+
+        servers = server_pool.servers
+        server_configs = dict([(s['host'], s) for s in config['servers']])
+        for server in servers:
+            sconfig = server_configs[server.host]
+            self.assertEqual(sconfig['port'], server.port)
+            self.assertEqual(sconfig['use_ssl'], server.ssl)
+            self.assertEqual(sconfig['get_info'], server.get_info)
+            self.assertEqual(sconfig['mode'], server.mode)
+            self.assertEqual(sconfig['connect_timeout'], server.connect_timeout)
+
+
+class TestLDAPConnectionFactory(TestCase, LDAPConnectionFactoryTester):
     def test_minimal_config(self):
         c = {
             'servers': [
@@ -184,47 +357,88 @@ class TestLDAPConnectionFactory(TestCase):
         factory = FakeLDAPConnectionFactory(test_config=c)
         connection = factory.get_connection()
 
-        # This is kind of wrong because it is testing the internal state of the ldap3 connection object
-        # What I am really trying to test is that the values passed in are actually being set, ie the factory works
-        self.assertEqual(c['connection']['user'], connection.user)
-        self.assertEqual(c['connection']['password'], connection.password)
-        self.assertEqual(c['connection']['auto_bind'], connection.auto_bind)
-        self.assertEqual(c['connection']['version'], connection.version)
-        self.assertEqual(c['connection']['authentication'], connection.authentication)
-        self.assertEqual(c['connection']['client_strategy'], connection.strategy_type)
-        self.assertEqual(c['connection']['auto_referrals'], connection.auto_referrals)
-        self.assertEqual(c['connection']['sasl_mechanism'], connection.sasl_mechanism)
-        self.assertEqual(c['connection']['read_only'], connection.read_only)
-        self.assertEqual(c['connection']['lazy'], connection.lazy)
-        self.assertEqual(c['connection']['check_names'], connection.check_names)
-        self.assertEqual(c['connection']['raise_exceptions'], connection.raise_exceptions)
-        self.assertEqual(c['connection']['pool_name'], connection.pool_name)
-        self.assertEqual(c['connection']['pool_size'], connection.pool_size)
-        self.assertEqual(c['connection']['pool_lifetime'], connection.pool_lifetime)
-        self.assertEqual(c['connection']['fast_decoder'], connection.fast_decoder)
-        self.assertEqual(c['connection']['receive_timeout'], connection.receive_timeout)
-        self.assertEqual(c['connection']['return_empty_attributes'], connection.empty_attributes)
+        self.run_all_of_the_tests(c, connection)
 
-        server_pool = connection.server_pool
-        self.assertEqual(c['pool']['active'], server_pool.active)
-        self.assertEqual(c['pool']['pool_strategy'], server_pool.strategy)
-        self.assertEqual(c['pool']['exhaust'], server_pool.exhaust)
-
-        servers = server_pool.servers
-        server_configs = dict([(s['host'], s) for s in c['servers']])
-        for server in servers:
-            config = server_configs[server.host]
-            self.assertEqual(config['port'], server.port)
-            self.assertEqual(config['use_ssl'], server.ssl)
-            self.assertEqual(config['get_info'], server.get_info)
-            self.assertEqual(config['mode'], server.mode)
-            self.assertEqual(config['connect_timeout'], server.connect_timeout)
+    def test_get_config(self):
+        with self.assertRaises(NotImplementedError):
+            a = LDAPConnectionFactory()
 
 
+class TestDjangoConnectionFactory(TestCase, LDAPConnectionFactoryTester):
+    def test_django_connection_factory(self):
+        factory = DjangoLDAPConnectionFactory()
+        connection = factory.get_connection()
+
+        config = getattr(settings, 'LDAP_CONFIG')
+
+        self.run_all_of_the_tests(config, connection)
 
 
+class TestYAMLConnectionFactory(TestCase, LDAPConnectionFactoryTester):
+    def test_yaml_connection_factory_from_string(self):
+        '''Passing a string file path to the YAML connection factory'''
+        factory = YAMLLDAPConnectionFactory(config_file=os.path.join(BASE_PATH, 'ldap_connection.yml'))
+        connection = factory.get_connection()
+
+        self.run_all_of_the_tests(factory.config, connection)
+
+    def test_yaml_connection_factory_from_file(self):
+        with open(os.path.join(BASE_PATH, 'ldap_connection.yml')) as f:
+            factory = YAMLLDAPConnectionFactory(config_file=f)
+        connection = factory.get_connection()
+
+        self.run_all_of_the_tests(factory.config, connection)
 
 
+class TestSynchronization(TestCase):
+    def setUp(self):
+        # Configured Synchronizer
+        connection = mock_ldap_connection()
+        connection.bind()
+        search_base = 'dc=example,dc=com'
+        search_filter = '(objectClass=person)'
+        depager = DePagingLDAPSearch(connection)
+        self.ldap_objects = depager.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
 
+        self.unique_name_field = 'employeeID'
 
+        model_data = [
+            {'first_name': 'Bob', 'last_name': 'Brown', 'email': 'bbrown@example.org', 'employeeID': 123456},
+            {'first_name': 'Rod', 'last_name': 'Stewart', 'email': 'rstewart@example.org', 'employeeID': 234567},
+            {'first_name': 'Iggy', 'last_name': 'Pop', 'email': 'ipop@example.org', 'employeeID': 345678},
+            {'first_name': 'Keith', 'last_name': 'Richards', 'email': 'krichard@example.org', 'employeeID': 456789},
+            {'first_name': 'Bob', 'last_name': 'Marley', 'email': 'bmarley@example.org', 'employeeID': 4567890},
+            {'first_name': 'James', 'last_name': 'Brown', 'email': 'jbrown@example.org', 'employeeID': 5678901},
+            {'first_name': 'Tom', 'last_name': 'Jones', 'email': 'tjones@example.org', 'employeeID': 6789012},
+            {'first_name': 'Otis', 'last_name': 'Redding', 'email': 'oredding@example.org', 'employeeID': 7890123},
+        ]
+        for md in model_data:
+            tdm = TestDjangoModel(**md)
+            tdm.save()
+        self.django_objects = dict([(getattr(m, self.unique_name_field), m) for m in TestDjangoModel.objects.all()])
+
+        self.attribute_map = {
+            'givenName': 'first_name',
+            'sn': 'last_name',
+            'email': 'email',
+            'employeeID': 'employeeID'
+        }
+
+        self.exempt_unique_names = [345678, 7890123]
+
+        self.removal_action = SUSPEND
+
+        self.bulk_create_chunk_size = 35
+
+        self.s = Synchronizer(ldap_objects=self.ldap_objects,
+                              django_objects=self.django_objects,
+                              attribute_map=self.attribute_map,
+                              django_object_model=TestDjangoModel,
+                              unique_name_field=self.unique_name_field,
+                              exempt_unique_names=self.exempt_unique_names,
+                              removal_action=self.removal_action,
+                              bulk_create_chunk_size=self.bulk_create_chunk_size)
+
+    def test_synchorinzation(self):
+        self.s.sync()
 

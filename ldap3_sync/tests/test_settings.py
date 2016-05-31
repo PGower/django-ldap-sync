@@ -36,3 +36,52 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
+
+
+LDAP_CONFIG = {
+    'servers': [
+        {
+            'host': 'testdc1.example.org',
+            'port': 123,
+            'use_ssl': True,
+            'allowed_referral_hosts': [('testdc2.example.org', True)],
+            'get_info': 'ALL',
+            'mode': 'IP_SYSTEM_DEFAULT',
+            'connect_timeout': 60
+        },
+        {
+            'host': 'testdc2.example.org',
+            'port': 345,
+            'use_ssl': False,
+            'allowed_referral_hosts': [('testdc1.example.org', False)],
+            'get_info': 'OFFLINE_AD_2012_R2',
+            'mode': 'IP_V4_PREFERRED',
+            'connect_timeout': 120
+        }
+    ],
+    'pool': {
+        'active': True,
+        'exhaust': True,
+        'pool_strategy': 'RANDOM',
+    },
+    'connection': {
+        'user': 'cn=adminuser,dc=example,dc=com',
+        'password': 'secret',
+        'auto_bind': 'AUTO_BIND_NO_TLS',
+        'version': 3,
+        'authentication': 'SIMPLE',
+        'client_strategy': 'SYNC',
+        'auto_referrals': True,
+        'sasl_mechanism': 'EXTERNAL',
+        'read_only': True,
+        'lazy': True,
+        'check_names': True,
+        'raise_exceptions': False,
+        'pool_name': 'Test Pool',
+        'pool_size': 10,
+        'pool_lifetime': 60,
+        'fast_decoder': True,
+        'receive_timeout': 15,
+        'return_empty_attributes': False
+    }
+}
