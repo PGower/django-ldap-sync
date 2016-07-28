@@ -1,10 +1,10 @@
 # Unit Tests...
 from django.test import TestCase
-from ldap3_sync.utils import Synchronizer, DePagingLDAPSearch, LDAPConnectionFactory, DjangoLDAPConnectionFactory, YAMLLDAPConnectionFactory
+from ldap3_sync.utils import Synchronizer, DePagingLDAPSearch, LDAPConnectionFactory, DjangoLDAPConnectionFactory, YAMLLDAPConnectionFactory, ModelLDAPConnectionFactory
 import mock
 import ldap3
 import ldap3_sync
-from ldap3_sync.models import LDAPSyncRecord
+from ldap3_sync.models import LDAPSyncRecord, LDAPConnection, LDAPServer, LDAPPool, LDAPReferralHost
 from models import TestDjangoModel
 from django.conf import settings
 from ldap3_sync.utils import NOTHING, SUSPEND, DELETE
@@ -244,42 +244,49 @@ class FakeLDAPConnectionFactory(LDAPConnectionFactory):
 
 
 class LDAPConnectionFactoryTester(object):
-    def run_all_of_the_tests(self, config, connection):
+    def run_all_of_the_tests(self, connection):
         # This is kind of wrong because it is testing the internal state of the ldap3 connection object
         # What I am really trying to test is that the values passed in are actually being set, ie the factory works
-        self.assertEqual(config['connection']['user'], connection.user)
-        self.assertEqual(config['connection']['password'], connection.password)
-        self.assertEqual(config['connection']['auto_bind'], connection.auto_bind)
-        self.assertEqual(config['connection']['version'], connection.version)
-        self.assertEqual(config['connection']['authentication'], connection.authentication)
-        self.assertEqual(config['connection']['client_strategy'], connection.strategy_type)
-        self.assertEqual(config['connection']['auto_referrals'], connection.auto_referrals)
-        self.assertEqual(config['connection']['sasl_mechanism'], connection.sasl_mechanism)
-        self.assertEqual(config['connection']['read_only'], connection.read_only)
-        self.assertEqual(config['connection']['lazy'], connection.lazy)
-        self.assertEqual(config['connection']['check_names'], connection.check_names)
-        self.assertEqual(config['connection']['raise_exceptions'], connection.raise_exceptions)
-        self.assertEqual(config['connection']['pool_name'], connection.pool_name)
-        self.assertEqual(config['connection']['pool_size'], connection.pool_size)
-        self.assertEqual(config['connection']['pool_lifetime'], connection.pool_lifetime)
-        self.assertEqual(config['connection']['fast_decoder'], connection.fast_decoder)
-        self.assertEqual(config['connection']['receive_timeout'], connection.receive_timeout)
-        self.assertEqual(config['connection']['return_empty_attributes'], connection.empty_attributes)
+        self.assertEqual("cn=adminuser,dc=example,dc=com", connection.user)
+        self.assertEqual('secret', connection.password)
+        self.assertEqual(ldap3.AUTO_BIND_NO_TLS, connection.auto_bind)
+        self.assertEqual(3, connection.version)
+        self.assertEqual(ldap3.SIMPLE, connection.authentication)
+        self.assertEqual(ldap3.SYNC, connection.strategy_type)
+        self.assertEqual(True, connection.auto_referrals)
+        self.assertEqual(ldap3.EXTERNAL, connection.sasl_mechanism)
+        self.assertEqual(True, connection.read_only)
+        self.assertEqual(True, connection.lazy)
+        self.assertEqual(True, connection.check_names)
+        self.assertEqual(False, connection.raise_exceptions)
+        self.assertEqual('Test Pool', connection.pool_name)
+        self.assertEqual(10, connection.pool_size)
+        self.assertEqual(60, connection.pool_lifetime)
+        self.assertEqual(True, connection.fast_decoder)
+        self.assertEqual(15, connection.receive_timeout)
+        self.assertEqual(False, connection.empty_attributes)
 
         server_pool = connection.server_pool
-        self.assertEqual(config['pool']['active'], server_pool.active)
-        self.assertEqual(config['pool']['pool_strategy'], server_pool.strategy)
-        self.assertEqual(config['pool']['exhaust'], server_pool.exhaust)
+        self.assertEqual(True, server_pool.active)
+        self.assertEqual(ldap3.RANDOM, server_pool.strategy)
+        self.assertEqual(True, server_pool.exhaust)
 
         servers = server_pool.servers
-        server_configs = dict([(s['host'], s) for s in config['servers']])
         for server in servers:
-            sconfig = server_configs[server.host]
-            self.assertEqual(sconfig['port'], server.port)
-            self.assertEqual(sconfig['use_ssl'], server.ssl)
-            self.assertEqual(sconfig['get_info'], server.get_info)
-            self.assertEqual(sconfig['mode'], server.mode)
-            self.assertEqual(sconfig['connect_timeout'], server.connect_timeout)
+            if server.host == 'testdc1.example.org':
+                self.assertEqual(123, server.port)
+                self.assertEqual(True, server.ssl)
+                self.assertEqual(ldap3.ALL, server.get_info)
+                self.assertEqual(ldap3.IP_SYSTEM_DEFAULT, server.mode)
+                self.assertEqual(60, server.connect_timeout)
+            elif server.host == 'testdc2.example.org':
+                self.assertEqual(345, server.port)
+                self.assertEqual(False, server.ssl)
+                self.assertEqual(ldap3.OFFLINE_AD_2012_R2, server.get_info)
+                self.assertEqual(ldap3.IP_V4_PREFERRED, server.mode)
+                self.assertEqual(120, server.connect_timeout)
+            else:
+                raise Exception('This should not happen.')
 
 
 class TestLDAPConnectionFactory(TestCase, LDAPConnectionFactoryTester):
@@ -301,6 +308,18 @@ class TestLDAPConnectionFactory(TestCase, LDAPConnectionFactoryTester):
                 'user': 'cn=admin,dc=example,dc=com',
                 'password': 'SecretPassword'
             }
+        }
+        factory = FakeLDAPConnectionFactory(test_config=c)
+        with self.assertRaises(ImproperlyConfigured):
+            factory.get_connection()
+
+    def test_broken_no_server(self):
+        c = {
+            'servers': [
+                {
+                    'port': 123,
+                }
+            ]
         }
         factory = FakeLDAPConnectionFactory(test_config=c)
         with self.assertRaises(ImproperlyConfigured):
@@ -357,11 +376,11 @@ class TestLDAPConnectionFactory(TestCase, LDAPConnectionFactoryTester):
         factory = FakeLDAPConnectionFactory(test_config=c)
         connection = factory.get_connection()
 
-        self.run_all_of_the_tests(c, connection)
+        self.run_all_of_the_tests(connection)
 
     def test_get_config(self):
         with self.assertRaises(NotImplementedError):
-            a = LDAPConnectionFactory()
+            a = LDAPConnectionFactory()  # noqa
 
 
 class TestDjangoConnectionFactory(TestCase, LDAPConnectionFactoryTester):
@@ -369,9 +388,7 @@ class TestDjangoConnectionFactory(TestCase, LDAPConnectionFactoryTester):
         factory = DjangoLDAPConnectionFactory()
         connection = factory.get_connection()
 
-        config = getattr(settings, 'LDAP_CONFIG')
-
-        self.run_all_of_the_tests(config, connection)
+        self.run_all_of_the_tests(connection)
 
 
 class TestYAMLConnectionFactory(TestCase, LDAPConnectionFactoryTester):
@@ -380,14 +397,91 @@ class TestYAMLConnectionFactory(TestCase, LDAPConnectionFactoryTester):
         factory = YAMLLDAPConnectionFactory(config_file=os.path.join(BASE_PATH, 'ldap_connection.yml'))
         connection = factory.get_connection()
 
-        self.run_all_of_the_tests(factory.config, connection)
+        self.run_all_of_the_tests(connection)
 
     def test_yaml_connection_factory_from_file(self):
         with open(os.path.join(BASE_PATH, 'ldap_connection.yml')) as f:
             factory = YAMLLDAPConnectionFactory(config_file=f)
         connection = factory.get_connection()
 
-        self.run_all_of_the_tests(factory.config, connection)
+        self.run_all_of_the_tests(connection)
+
+
+class TestModelConnectionFactory(TestCase, LDAPConnectionFactoryTester):
+    def test_model_connection_factory(self):
+        connection_model_data = {
+            'user': "cn=adminuser,dc=example,dc=com",
+            'password': 'secret',
+            'auto_bind': 'AUTO_BIND_NO_TLS',
+            'version': 3,
+            'authentication': 'SIMPLE',
+            'client_strategy': 'SYNC',
+            'auto_referrals': True,
+            'sasl_mechanism': 'EXTERNAL',
+            'read_only': True,
+            'lazy': True,
+            'check_names': True,
+            'raise_exceptions': False,
+            'pool_name': 'Test Pool',
+            'pool_size': 10,
+            'pool_lifetime': 60,
+            'fast_decoder': True,
+            'receive_timeout': 15,
+            'return_empty_attributes': False,
+        }
+        servers_model_data = [
+            {
+                'host': 'testdc1.example.org',
+                'port': 123,
+                'use_ssl': True,
+                'allowed_referral_hosts': [['testdc2.example.org', True]],
+                'get_info': 'ALL',
+                'mode': 'IP_SYSTEM_DEFAULT',
+                'connect_timeout': 60
+            },
+            {
+                'host': 'testdc2.example.org',
+                'port': 345,
+                'use_ssl': False,
+                'allowed_referral_hosts': [['testdc1.example.org', False]],
+                'get_info': 'OFFLINE_AD_2012_R2',
+                'mode': 'IP_V4_PREFERRED',
+                'connect_timeout': 120,
+            }
+        ]
+        pool_model_data = {
+            'active': True,
+            'exhaust': True,
+            'pool_strategy': 'RANDOM',
+        }
+
+        ldap_connection = LDAPConnection(**connection_model_data)
+        ldap_connection.save()
+
+        for s in servers_model_data:
+            if 'allowed_referral_hosts' in s:
+                allowed_referral_hosts = s['allowed_referral_hosts']
+                del s['allowed_referral_hosts']
+                server = LDAPServer(**s)
+                server.connection = ldap_connection
+                server.save()
+                for h in allowed_referral_hosts:
+                    i = LDAPReferralHost(hostname=h[0], allowed=h[1])
+                    i.server = server
+                    i.save()
+            else:
+                server = LDAPServer(**s)
+                server.connection = ldap_connection
+                server.save()
+
+        pool = LDAPPool(**pool_model_data)
+        pool.connection = ldap_connection
+        pool.save()
+
+        factory = ModelLDAPConnectionFactory(ldap_connection.pk)
+        connection = factory.get_connection()
+
+        self.run_all_of_the_tests(connection)
 
 
 class TestSynchronization(TestCase):
@@ -440,5 +534,7 @@ class TestSynchronization(TestCase):
                               bulk_create_chunk_size=self.bulk_create_chunk_size)
 
     def test_synchorinzation(self):
+        '''Generic sync, should create model objects for all the Mock LDAP Server objects'''
         self.s.sync()
+
 

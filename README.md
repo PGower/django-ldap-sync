@@ -162,7 +162,7 @@ servers:
 pool:
     active: boolean / number
     exhaust: boolean / number
-    strategy: constants from ldap3 package
+    pool_strategy: constants from ldap3 package
 
 connection:
     server: will be provided

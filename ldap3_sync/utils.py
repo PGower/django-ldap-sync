@@ -11,7 +11,7 @@ from django.db.models import QuerySet
 
 import ldap3
 
-from ldap3_sync.models import LDAPSyncRecord
+from ldap3_sync.models import LDAPSyncRecord, LDAPConnection
 
 import petname
 
@@ -289,19 +289,19 @@ class Synchronizer(object):
                 try:
                     value_map[model_attr] = value_map[model_attr][0]
                 except IndexError:
-                    # This might be the wront way to do this. If we recieved a value but its empty then that seems like something we want to know.
+                    # This might be the wrong way to do this. If we recieved a value but its empty then that seems like something we want to know.
                     value_map[model_attr] = None
         return value_map
 
-    def get_django_objects(self, model):
-        '''
-        Given a Django model class get all of the current records that match.
-        This is better than django's bulk methods and has no upper limit.
-        '''
-        model_name = model.__class__.__name__
-        model_objects = [i for i in model.objects.all()]
-        self.logger.debug('Found {} {} objects in DB'.format(len(model_objects), model_name))
-        return model_objects
+    # def get_django_objects(self, model):
+    #     '''
+    #     Given a Django model class get all of the current records that match.
+    #     This is better than django's bulk methods and has no upper limit.
+    #     '''
+    #     model_name = model.__class__.__name__
+    #     model_objects = [i for i in model.objects.all()]
+    #     self.logger.debug('Found {} {} objects in DB'.format(len(model_objects), model_name))
+    #     return model_objects
 
 
 ############################
@@ -425,6 +425,17 @@ class YAMLLDAPConnectionFactory(LDAPConnectionFactory):
         else:
             with open(self.config_file, 'r') as f:
                 return yaml.load(f)
+
+
+class ModelLDAPConnectionFactory(LDAPConnectionFactory):
+    def __init__(self, pk, model=LDAPConnection):
+        self.model_pk = pk
+        self.model = model
+        super(ModelLDAPConnectionFactory, self).__init__()
+
+    def _get_config(self):
+        c = self.model.objects.get(pk=self.model_pk)
+        return c.to_dict()
 
 
 class UnableToApplyValueMapError(Exception):
