@@ -59,6 +59,10 @@ The distinguished name of the container to base the search for users in.
 Default: **No Default -- Required Item**  
 A dictionary of key value pairs where the keys are the names of ldap fields and the values are the names of corresponding django model fields. New users will be created with these fields populated and existing users will have these fields updated. *This dictionary must map the Django User model username field to an LDAP object field.*
 
+***LDAP_SYNC_USER_DEFAULT_ATTRIBUTES***
+Default: `{}`  
+A dictionary of default values for the given user attributes --keys are attributes. If a certain user does not have an attribute, use the one defined in this dictionary.
+
 ***LDAP_SYNC_USER_EXEMPT_FROM_SYNC***  
 Default: `[]`  
 A list of usernames corresponding to Django users who should be excluded from the sync. Useful for Administrative users who do not have a corresponding user in the directory.
@@ -88,6 +92,10 @@ The distinguished name of the container to base the search for groups in.
 ***LDAP_SYNC_GROUP_ATTRIBUTES***  
 Default: **No Default -- Required Item**  
 A dictionary of key value pairs where the keys are the names of LDAP fields and the values are the names of corresponding Django model fields. New groups will be created with these fields populated and existing users will have these fields updated.
+
+***LDAP_SYNC_GROUP_DEFAULT_ATTRIBUTES***
+Default: `{}`  
+A dictionary of default values for the given group attributes --keys are attributes. If a certain group does not have an attribute, use the one defined in this dictionary.
 
 ***LDAP_SYNC_GROUP_REMOVAL_ACTION***  
 Default: `NOTHING`  
