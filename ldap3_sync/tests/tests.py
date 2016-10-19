@@ -206,6 +206,68 @@ class TestConfiguredSynchronizer(TestCase):
         self.assertTrue(self.c_s.will_model_change({'first_name': 'Daniel', 'last_name': u'Radcliff', 'email': u'dradcliff@example.org', 'employeeID': 123456}, model))
 
 
+class TestDefaultAttributesSynchronizer(TestCase):
+    def setUp(self):
+        # Configured Synchronizer
+        connection = mock_ldap_connection()
+        connection.bind()
+        search_base = 'dc=example,dc=com'
+        search_filter = '(objectClass=person)'
+        depager = DePagingLDAPSearch(connection)
+        self.ldap_objects = depager.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
+
+        self.unique_name_field = 'employeeID'
+
+        self.default_email = "default@example.org"
+
+        model_data = [
+            {'first_name': 'Bob', 'last_name': 'Brown', 'employeeID': 123456},
+            {'first_name': 'Rod', 'last_name': 'Stewart', 'email': 'rstewart@example.org', 'employeeID': 234567},
+            {'first_name': 'Iggy', 'last_name': 'Pop', 'employeeID': 345678},
+            {'first_name': 'Keith', 'last_name': 'Richards', 'email': 'krichard@example.org', 'employeeID': 456789},
+            {'first_name': 'Bob', 'last_name': 'Marley', 'employeeID': 4567890},
+            {'first_name': 'James', 'last_name': 'Brown', 'email': 'jbrown@example.org', 'employeeID': 5678901},
+            {'first_name': 'Tom', 'last_name': 'Jones', 'employeeID': 6789012},
+            {'first_name': 'Otis', 'last_name': 'Redding', 'email': 'oredding@example.org', 'employeeID': 7890123},
+        ]
+        for md in model_data:
+            if "email" in md:
+                tdm = TestDjangoModel(**md)
+            else:
+                tdm = TestDjangoModel(email=self.default_email, **md)
+            tdm.save()
+
+        self.django_objects = dict([(getattr(m, self.unique_name_field), m) for m in TestDjangoModel.objects.all()])
+
+        self.attribute_map = {
+            'givenName': 'first_name',
+            'sn': 'last_name',
+            'email': 'email',
+            'employeeID': 'employeeID'
+        }
+
+        self.attribute_defaults_map = {'email': self.default_email}
+
+        self.exempt_unique_names = [345678, 7890123]
+
+        self.removal_action = SUSPEND
+
+        self.bulk_create_chunk_size = 35
+
+        self.c_s = Synchronizer(ldap_objects=self.ldap_objects,
+                                django_objects=self.django_objects,
+                                attribute_map=self.attribute_map,
+                                attribute_defaults_map=self.attribute_defaults_map,
+                                django_object_model=TestDjangoModel,
+                                unique_name_field=self.unique_name_field,
+                                exempt_unique_names=self.exempt_unique_names,
+                                removal_action=self.removal_action,
+                                bulk_create_chunk_size=self.bulk_create_chunk_size)
+
+    def test_django_objects_returns_value(self):
+        self.assertEqual(self.c_s.django_objects, self.django_objects)
+
+
 class TestSearchDePager(TestCase):
     def setUp(self):
         self.connection = mock_ldap_connection()
