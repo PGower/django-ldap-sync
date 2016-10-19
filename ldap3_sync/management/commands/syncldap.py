@@ -39,14 +39,15 @@ DEFAULTS = {
     'LDAP_SYNC_USER_REMOVAL_ACTION': NOTHING,
     'USERNAME_FIELD': 'username',
     'LDAP_SYNC_USER_SET_UNUSABLE_PASSWORD': True,
+    'LDAP_SYNC_USER_DEFAULT_ATTRIBUTES': {},
     'LDAP_SYNC_USERS': True,
     'LDAP_SYNC_GROUP_FILTER': '(objectClass=group)',
     'LDAP_SYNC_GROUP_REMOVAL_ACTION': NOTHING,
     'LDAP_SYNC_GROUP_EXEMPT_FROM_SYNC': [],
+    'LDAP_SYNC_GROUP_DEFAULT_ATTRIBUTES': {},
     'LDAP_SYNC_GROUPS': True,
     'LDAP_SYNC_GROUP_MEMBERSHIP': True,
     'LDAP_SYNC_GROUP_MEMBERSHIP_FILTER': '(&(objectClass=group)(member={user_dn}))'
-
 }
 
 
@@ -204,6 +205,8 @@ class Command(BaseCommand):
 
         self.set_unusable_password = getattr(settings, 'LDAP_SYNC_USER_SET_UNUSABLE_PASSWORD', DEFAULTS['LDAP_SYNC_USER_SET_UNUSABLE_PASSWORD'])
 
+        self.user_default_attributes = getattr(settings, 'LDAP_SYNC_USER_DEFAULT_ATTRIBUTES', DEFAULTS['LDAP_SYNC_USER_DEFAULT_ATTRIBUTES'])
+
         self.sync_users = getattr(settings, 'LDAP_SYNC_USERS', DEFAULTS['LDAP_SYNC_USERS'])
 
         # Check to make sure we have assigned a value to the username field
@@ -235,6 +238,8 @@ class Command(BaseCommand):
         self.exempt_groupnames = getattr(settings, 'LDAP_SYNC_GROUP_EXEMPT_FROM_SYNC', DEFAULTS['LDAP_SYNC_GROUP_EXEMPT_FROM_SYNC'])
         if callable(self.exempt_groupnames):
             self.exempt_groupnames = self.exempt_groupnames()
+
+        self.group_default_attributes = getattr(settings, 'LDAP_SYNC_GROUP_DEFAULT_ATTRIBUTES', DEFAULTS['LDAP_SYNC_GROUP_DEFAULT_ATTRIBUTES'])
 
         self.sync_groups = getattr(settings, 'LDAP_SYNC_GROUPS', DEFAULTS['LDAP_SYNC_GROUPS'])
 

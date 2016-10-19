@@ -27,6 +27,7 @@ class Synchronizer(object):
                  ldap_objects=None,
                  django_objects=None,
                  attribute_map=None,
+                 attribute_defaults_map=None,
                  django_object_model=None,
                  unique_name_field=None,
                  exempt_unique_names=[],
@@ -37,6 +38,7 @@ class Synchronizer(object):
         self.ldap_objects_v = ldap_objects
         self.django_objects_v = django_objects
         self.attribute_map_v = attribute_map
+        self.attribute_defaults_map = attribute_defaults_map or {}
         self.django_object_model_v = django_object_model
         self.unique_name_field_v = unique_name_field
         self.exempt_unique_names = exempt_unique_names
@@ -164,7 +166,7 @@ class Synchronizer(object):
                 continue
 
             try:
-                value_map = self.generate_value_map(self.attribute_map, ldap_object['attributes'])
+                value_map = self.generate_value_map(self.attribute_map, ldap_object['attributes'], self.attribute_defaults_map)
             except MissingLdapField as e:
                 self.logger.error('LDAP Object {ldap_object} is missing a field: {field_name}'.format(ldap_object=ldap_object['dn'], field_name=e))
                 continue
@@ -275,7 +277,7 @@ class Synchronizer(object):
                 raise UnableToApplyValueMapError('User model {} does not have attribute {}'.format(user_model.__class__.__name__, k))
         return user_model
 
-    def generate_value_map(self, attribute_map, ldap_attribute_values):
+    def generate_value_map(self, attribute_map, ldap_attribute_values, attribute_defaults_map):
         '''Given an attribute map (dict with keys as ldap attrs and values as model attrs) generate a dictionary
            which maps model attribute keys to ldap values'''
         value_map = {}
@@ -283,7 +285,10 @@ class Synchronizer(object):
             try:
                 value_map[model_attr] = ldap_attribute_values[ldap_attr]
             except KeyError:
-                raise MissingLdapField(ldap_attr)
+                if ldap_attr in attribute_defaults_map:
+                    value_map[model_attr] = attribute_defaults_map[ldap_attr]
+                else:
+                    raise MissingLdapField(ldap_attr)
             # If we recieve a list / tuple for an LDAP attribute return only the first item.
             if type(value_map[model_attr]) is list or type(value_map[model_attr]) is tuple:
                 try:

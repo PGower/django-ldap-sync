@@ -112,6 +112,8 @@ class TestConfiguredSynchronizer(TestCase):
             'employeeID': 'employeeID'
         }
 
+        self.attribute_defaults_map = {}
+
         self.exempt_unique_names = [345678, 7890123]
 
         self.removal_action = SUSPEND
@@ -121,6 +123,7 @@ class TestConfiguredSynchronizer(TestCase):
         self.c_s = Synchronizer(ldap_objects=self.ldap_objects,
                                 django_objects=self.django_objects,
                                 attribute_map=self.attribute_map,
+                                attribute_defaults_map=self.attribute_defaults_map,
                                 django_object_model=TestDjangoModel,
                                 unique_name_field=self.unique_name_field,
                                 exempt_unique_names=self.exempt_unique_names,
@@ -158,6 +161,7 @@ class TestConfiguredSynchronizer(TestCase):
         '''When no django objects are passed in, use the django_object_model to extract all models'''
         s = Synchronizer(ldap_objects=self.ldap_objects,
                          attribute_map=self.attribute_map,
+                         attribute_defaults_map=self.attribute_defaults_map,
                          django_object_model=TestDjangoModel,
                          unique_name_field=self.unique_name_field,
                          exempt_unique_names=self.exempt_unique_names,
@@ -170,6 +174,7 @@ class TestConfiguredSynchronizer(TestCase):
         s = Synchronizer(ldap_objects=self.ldap_objects,
                          django_objects=TestDjangoModel.objects.filter(first_name__icontains='e').all(),
                          attribute_map=self.attribute_map,
+                         attribute_defaults_map=self.attribute_defaults_map,
                          django_object_model=TestDjangoModel,
                          unique_name_field=self.unique_name_field,
                          exempt_unique_names=self.exempt_unique_names,
@@ -424,6 +429,8 @@ class TestSynchronization(TestCase):
             'employeeID': 'employeeID'
         }
 
+        self.attribute_defaults_map = {}
+
         self.exempt_unique_names = [345678, 7890123]
 
         self.removal_action = SUSPEND
@@ -433,6 +440,7 @@ class TestSynchronization(TestCase):
         self.s = Synchronizer(ldap_objects=self.ldap_objects,
                               django_objects=self.django_objects,
                               attribute_map=self.attribute_map,
+                              attribute_defaults_map=self.attribute_defaults_map,
                               django_object_model=TestDjangoModel,
                               unique_name_field=self.unique_name_field,
                               exempt_unique_names=self.exempt_unique_names,
