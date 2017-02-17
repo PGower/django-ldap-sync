@@ -47,5 +47,5 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     keywords=['django', 'ldap', 'active directory', 'synchronize', 'sync'],
-    install_requires=['ldap3 >= 0.9.7.4', 'petname >= 1.12'],
+    install_requires=['ldap3 >= 0.9.7.4', 'petname >= 1.12', 'petl', 'petl_ldap3', 'petl_django'],
 )
