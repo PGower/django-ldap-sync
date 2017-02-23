@@ -1,12 +1,16 @@
-from django.core.management import call_command
-
+from __future__ import absolute_import, unicode_literals
 from celery import shared_task
+from .models import LDAPSyncJob
+from .utils import BackgroundSyncRunner
 
 
 @shared_task
-def syncldap():
-    """
-    Call the appropriate management command to synchronize the LDAP users
-    with the local database.
-    """
-    call_command('syncldap')
+def syncldap(sync_job_name):
+	"""Retrieve the given sync_job by name and attempt to run it."""
+    try:
+    	sync_job = LDAPSyncJob.objects.get(sync_job_name)
+    except LDAPSyncJob.DoesNotExist as e:
+    	return f'FAILED: {e}'
+    runner = BackgroundSyncRunner(sync_job)
+    runner.run()
+    return 'RUN'

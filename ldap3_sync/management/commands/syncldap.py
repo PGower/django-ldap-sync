@@ -11,7 +11,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
-            runner = CLISyncRunner(options['job_name'])
-            runner.run()
+            sync_job = LDAPSyncJob.objects.get(name=options['job_name'])
         except LDAPSyncJob.DoesNotExist:
             raise CommandError('LDAPSyncJob with name {} does not exist.'.format(options['job_name']))
+        runner = CLISyncRunner(sync_job)
+        runner.run()

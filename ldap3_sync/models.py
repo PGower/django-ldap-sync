@@ -20,33 +20,13 @@ HELP_TEXT = ('DO NOT edit this unless you really know '
              'recreate it.')
 
 
-# class LDAPSyncRecord(models.Model):
-#     '''Used to record a link between any model synchronised by django-ldap3-sync and its distinguished_name in the directory'''
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-#     distinguished_name = models.TextField(blank=False, help_text=HELP_TEXT)
-#     obj = GenericForeignKey('content_type', 'object_id')
-#     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-#     object_id = models.CharField(max_length=255)  # Try to ensure compatibility
-
-#     def touch(self):
-#         '''Update the updated_at time by saving the model'''
-#         self.save()
-
-#     def __unicode__(self):
-#         return u'LDAPSyncRecord({}, {})'.format(str(self.obj), self.distinguished_name[:35])
-
-#     class Meta:
-#         verbose_name = 'LDAP Sync Record'
-#         verbose_name_plural = 'LDAP Sync Records'
-#         unique_together = [('distinguished_name', 'content_type', 'object_id')]
-
-
 class LDAPConnection(models.Model):
     """Equivalent to an ldap3.Connection."""
 
-    user = models.CharField(max_length=255, blank=True, null=True)
-    password = models.CharField(max_length=255, blank=True, null=True)
+    user = models.CharField(max_length=255, blank=True, null=True,
+                            help_text='Bind username for the LDAP server. Format is server dependent but is usually the distinguished name of the user.')
+    password = models.CharField(max_length=255, blank=True, null=True,
+                                help_text='Password for the bind user.')
     pool = models.ForeignKey('LDAPPool', related_name='connections')
     auto_bind = models.CharField(max_length=128,
                                  default=ldap3.AUTO_BIND_NONE,
@@ -122,7 +102,7 @@ class LDAPConnection(models.Model):
                                 auto_escape=self.auto_escape,
                                 auto_encode=self.auto_encode)
 
-    def __unicode__(self):
+    def __str__(self):
         return u'LDAPConnection({})'.format(','.join([i.host for i in self.pool.servers.all()]))
 
     class Meta:
@@ -151,7 +131,7 @@ class LDAPPool(models.Model):
                                 active=self.active,
                                 exhaust=self.exhaust)
 
-    def __unicode__(self):
+    def __str__(self):
         return u'LDAPPool({})'.format(','.join([i.host for i in self.servers.all()]))
 
     class Meta:
@@ -198,7 +178,7 @@ class LDAPServer(models.Model):
                             connect_timeout=self.connect_timeout,
                             mode=self.mode)
 
-    def __unicode__(self):
+    def __str__(self):
         if self.port is not None:
             return u'LDAPServer({}:{})'.format(self.host, self.port)
         else:
@@ -215,7 +195,7 @@ class LDAPReferralHost(models.Model):
     hostname = models.CharField(max_length=255)
     allowed = models.BooleanField(default=True)
 
-    def __unicode__(self):
+    def __str__(self):
         """Unicode string representation of this Referral Host."""
         return u'LDAPReferralHost(hostname={})'.format(self.hostname)
 
@@ -256,7 +236,7 @@ class LDAPSyncJob(models.Model):
                                                                              ('ERROR', 'ERROR'),
                                                                              ('CRITICAL', 'CRITICAL')])
 
-    def __unicode__(self):
+    def __str__(self):
         """Return unicode string for this LDAPSync model."""
         return u'LDAP Sync Job: {}'.format(self.name)
 

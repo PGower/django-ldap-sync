@@ -25,7 +25,7 @@ package_data = {
 setup(
     name='django-ldap3-sync',
     version=version,
-    description='A Django application for synchronizing LDAP users, groups and group membership. (Forked from django-ldap-sync).',
+    description='A Django application for synchronizing LDAP objects to Django models.',
     long_description=long_description,
     author='Paul Gower',
     author_email='p.gower@gmail.com',
@@ -34,7 +34,7 @@ setup(
     package_dir={'ldap3-sync': 'ldap3-sync'},
     packages=packages,
     package_data=package_data,
-    license='BSD',
+    license='MIT',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Web Environment',

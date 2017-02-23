@@ -3,10 +3,10 @@ import petl
 from petl_ldap3 import fromldap
 from petl_django import fromdjango
 import logging
-import StringIO
+from io import StringIO
 from django.utils.module_loading import import_string
 from datetime import datetime
-from ldap3_sync.models import LDAPSyncJob, LDAPSyncJobLog
+from .models import LDAPSyncJob, LDAPSyncJobLog
 
 
 class Synchronizer(object):
@@ -304,10 +304,6 @@ class SyncRunner(object):
 
 class CLISyncRunner(SyncRunner):
     """CLI Runner class. Takes a name instead of a LDAPSyncJob model."""
-    def __init__(self, sync_job_name):
-        sync_job = LDAPSyncJob.objects.get(name=sync_job_name)
-        super(CLISyncRunner, self).__init__(sync_job)
-
     def setup_logging(self):
         """Setup a logger that sends everything to the console."""
         logger = logging.getLogger('LDAPSyncJob: {}'.format(self.sync_job.name))
