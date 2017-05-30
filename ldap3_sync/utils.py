@@ -13,6 +13,8 @@ from django.utils.module_loading import import_string
 from datetime import datetime
 from .models import LDAPSyncJob, LDAPSyncJobLog
 
+from django.conf import settings
+
 
 class Synchronizer(object):
     """A base synchornizer class."""
@@ -328,32 +330,38 @@ class CLISyncRunner(SyncRunner):
         """Perform any teardown actions for the logging system."""
         pass
 
+# https://stackoverflow.com/questions/9534245/python-logging-to-stringio-handler
 
 class BackgroundSyncRunner(SyncRunner):
     """Background runner class."""
     def setup_logging(self):
         """log everything to a variable and store the contents in a LDAPSyncJobLog."""
         self.start = datetime.now()
-        logger = logging.getLogger('LDAPSyncJob: {}'.format(self.sync_job.name))
-        logger.setLevel(self.sync_job.logging_level)
 
-        self.logging_target = StringIO()
-        stream_handler = logging.StreamHandler(self.logging_target)
-        stream_handler.setLevel(self.sync_job.logging_level)
+        self.stream = StringIO()
+        self.handler = logging.StreamHandler(self.stream)
 
-        formatter = logging.Formatter('%(asctime)s:%(name)s:%(levelname)s:: %(message)s')
-        stream_handler.setFormatter(formatter)
+        self.formatter = logging.Formatter('%(asctime)s:%(name)s:%(levelname)s:: %(message)s')
+        self.handler.setFormatter(self.formatter)
 
-        logger.addHandler(stream_handler)
+        self.log = logging.getLogger(f'LDAPSyncJob: {self.sync_job.name}')
+        self.log.setLevel(level)
 
-        return logger
+        for handler in self.log.handlers:
+            self.log.removeHandler(handler)
+        self.log.addHandler(self.handler)        
+
+        return self.log
 
     def teardown_logging(self):
         end = datetime.now()
 
-        logging_data = self.logging_target.getvalue()
-        self.logging_target.close()
+        self.handler.flush()
+        logging_data = self.stream.getvalue()
+        self.logger.removeHandler(self.handler)
+        self.handler.close()
 
         successful = getattr(self, 'successful', False)
 
         LDAPSyncJobLog.store_log(self.sync_job, logging_data, self.start, end, successful)
+
