@@ -3,7 +3,12 @@ import petl
 from petl_ldap3 import fromldap
 from petl_django import fromdjango
 import logging
-from io import StringIO
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 from django.utils.module_loading import import_string
 from datetime import datetime
 from .models import LDAPSyncJob, LDAPSyncJobLog
@@ -332,7 +337,7 @@ class BackgroundSyncRunner(SyncRunner):
         logger = logging.getLogger('LDAPSyncJob: {}'.format(self.sync_job.name))
         logger.setLevel(self.sync_job.logging_level)
 
-        self.logging_target = StringIO.StringIO()
+        self.logging_target = StringIO()
         stream_handler = logging.StreamHandler(self.logging_target)
         stream_handler.setLevel(self.sync_job.logging_level)
 
