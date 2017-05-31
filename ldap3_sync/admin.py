@@ -64,6 +64,7 @@ class LDAPSyncJobAdmin(admin.ModelAdmin):
 
 class LDAPSyncJobLogAdmin(admin.ModelAdmin):
     list_display = ['sync_job', 'started_at', 'ended_at', 'successful']
+    ordering = ['-started_at']
     class Meta:
         model = LDAPSyncJobLog
 

@@ -345,7 +345,7 @@ class BackgroundSyncRunner(SyncRunner):
         self.handler.setFormatter(self.formatter)
 
         self.log = logging.getLogger(f'LDAPSyncJob: {self.sync_job.name}')
-        self.log.setLevel(level)
+        self.log.setLevel(self.sync_job.logging_level)
 
         for handler in self.log.handlers:
             self.log.removeHandler(handler)
