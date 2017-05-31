@@ -1,5 +1,5 @@
 from __future__ import absolute_import, unicode_literals
-from celery import shared_task
+from celery import shared_task, Task
 from .models import LDAPSyncJob
 from .utils import BackgroundSyncRunner
 
@@ -14,3 +14,4 @@ def syncldap(sync_job_name):
     runner = BackgroundSyncRunner(sync_job)
     runner.run()
     return 'RUN'
+
