@@ -361,9 +361,6 @@ class BackgroundSyncRunner(SyncRunner):
 
         self.stream.truncate(0)
         self.stream.seek(0)
-        
-        # self.log.removeHandler(self.handler)
-        # self.handler.close()
 
         successful = getattr(self, 'successful', False)
 
